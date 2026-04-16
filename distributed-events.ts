@@ -1,5 +1,9 @@
-const resource = (caller: string) => {
-  console.log(`resource is being called by ${caller}`);
+// Time, Clocks, and the Ordering of Events in a Distributed System
+// Leslie Lamport
+
+const oldConsoleLog = console.log;
+console.log = (...args) => {
+  oldConsoleLog("\n", ...args, "\n");
 };
 
 type Message = {
@@ -32,6 +36,8 @@ class Process {
     if (message.timestamp > this.#timestamp) {
       this.#timestamp = message.timestamp + 1;
     }
+
+    this.#messageQueue.unshift(message);
   }
 
   handleRequest(message: Message, sender: Process) {
@@ -121,10 +127,36 @@ class Process {
       message: "request resource",
       type: "request",
     };
+    this.#messageQueue.unshift(request);
     this.sendMessageToAllProcesses(request);
 
     // I'm not actually sure when we are suppposed to increment this timestamp, I am just guessing its here?
     this.#timestamp += 1;
+  }
+
+  attemptToAccessResource() {
+    // Process P/is granted the resource when the follow- ing two conditions are satisfied:
+
+    const earliestRequest = this.#messageQueue[this.#messageQueue.length - 1];
+    // (i) There is a Tm:Pi requests resource message in its request queue which is ordered before any other request in its queue by the relation ~.
+    if (
+      earliestRequest &&
+      earliestRequest.processId === this.#processId &&
+      earliestRequest.type === "request"
+    ) {
+      // (ii) P~has received a message from every other process time- stamped later than Tin.~ (nick: I assume this is an ack request??)
+      // todo - I do think we need to trace all request / release / ack calls by the original timestamp maybe?
+      const everyOtherProcessAcked = Process.processes.every((p) => {
+        if (p.#processId === this.#processId) return true;
+        return this.#messageQueue.find((message) => {
+          return message.type === "ack" && message.processId === p.#processId;
+        });
+      });
+      if (everyOtherProcessAcked) {
+        return console.log(`Access granted for process ${this.#processId}!!`);
+      }
+    }
+    return console.log(`Access denied for process ${this.#processId}!!`);
   }
 }
 
@@ -132,4 +164,8 @@ const processOne = new Process();
 const processTwo = new Process();
 const processThree = new Process();
 
+processOne.attemptToAccessResource();
 processOne.requestResource();
+processOne.attemptToAccessResource();
+
+//note: to make an array act like a queue, unshift IN and pop/length access OUT
