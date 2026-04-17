@@ -1,9 +1,27 @@
 // Time, Clocks, and the Ordering of Events in a Distributed System
 // Leslie Lamport
 
+class MessageQueue {
+  queue: any[] = [];
+  enqueue(el) {
+    return this.queue.push(el);
+  }
+  dequeue() {
+    return this.queue.shift();
+  }
+  peekFrontOfQueue() {
+    return this.queue[0];
+  }
+  length() {
+    return this.queue.length;
+  }
+}
+
+let verboseLogging = false;
+
 const oldConsoleLog = console.log;
 console.log = (...args) => {
-  oldConsoleLog("\n", ...args, "\n");
+  verboseLogging && oldConsoleLog("\n", ...args, "\n");
 };
 
 type Message = {
@@ -15,7 +33,7 @@ type Message = {
 
 class Process {
   #processId = 0;
-  #messageQueue: Message[] = [];
+  #messageQueue = new MessageQueue();
   #timestamp = 0;
 
   constructor() {
@@ -37,7 +55,7 @@ class Process {
       this.#timestamp = message.timestamp + 1;
     }
 
-    this.#messageQueue.unshift(message);
+    this.#messageQueue.enqueue(message);
   }
 
   handleRequest(message: Message, sender: Process) {
@@ -58,7 +76,7 @@ class Process {
     */
       this.#timestamp = message.timestamp + 1;
     }
-    this.#messageQueue.push(message);
+    this.#messageQueue.enqueue(message);
     sender.receiveMessage(
       {
         timestamp: this.#timestamp,
@@ -78,9 +96,13 @@ class Process {
     // but i'll leave that as a todo and for now just kill all requests for that process
 
     //filter out messages from that process
-    this.#messageQueue = this.#messageQueue.filter((m) => {
-      m.processId !== message.processId;
-    });
+    console.log(`-----P${this.#processId} handling release-----`);
+    console.log("before message queue", this.#messageQueue);
+    this.#messageQueue.queue = this.#messageQueue.queue.filter(
+      (m) => m.processId !== message.processId || m.type !== "request",
+    );
+    console.log("before message queue", this.#messageQueue);
+    console.log("-------");
   }
   receiveMessage(message: Message, sender: Process) {
     // todo make these individual handlers
@@ -88,6 +110,8 @@ class Process {
       this.handleAck(message, sender);
     } else if (message.type === "request") {
       this.handleRequest(message, sender);
+    } else if (message.type === "release") {
+      this.handleRelease(message, sender);
     }
   }
 
@@ -100,12 +124,15 @@ class Process {
   }
 
   releaseResource() {
+    console.log(`P${this.#processId} releasing resource `);
     // 3. To release the resource,
     // process P~ removes any Tm:Pi requests resource message from its request queue
     // and sends a (timestamped) Pi releases resource message to every other process.
 
+    console.log(this.#messageQueue);
     // --- I'm just assuming the front of the queue is my own request resource call ... idk if that is right
-    this.#messageQueue.shift();
+    const poppedMessage = this.#messageQueue.dequeue();
+    console.log("popped message ", poppedMessage);
     //todo make this just a generic message with a type, instead of release / request / acknowledgement etc
     const message: Message = {
       timestamp: this.#timestamp,
@@ -117,6 +144,7 @@ class Process {
   }
 
   requestResource() {
+    console.log(`-----  P${this.#processId} requesting resource -------`);
     // To request the resource,
     // process Pi sends the mes- sage TIn:P/requests resource to every other process,
     // and puts that message on its request queue, where T,~ is the timestamp of the message.
@@ -127,7 +155,7 @@ class Process {
       message: "request resource",
       type: "request",
     };
-    this.#messageQueue.unshift(request);
+    this.#messageQueue.enqueue(request);
     this.sendMessageToAllProcesses(request);
 
     // I'm not actually sure when we are suppposed to increment this timestamp, I am just guessing its here?
@@ -135,10 +163,16 @@ class Process {
   }
 
   attemptToAccessResource() {
-    // Process P/is granted the resource when the follow- ing two conditions are satisfied:
+    console.log(
+      `--------P${this.#processId} attempting to access resource---- ----`,
+    );
+    // Process P/is granted the resource when the following two conditions are satisfied:
 
-    const earliestRequest = this.#messageQueue[this.#messageQueue.length - 1];
+    const earliestRequest = this.#messageQueue.peekFrontOfQueue();
+
     // (i) There is a Tm:Pi requests resource message in its request queue which is ordered before any other request in its queue by the relation ~.
+    console.log(earliestRequest);
+    console.log(this.#messageQueue);
     if (
       earliestRequest &&
       earliestRequest.processId === this.#processId &&
@@ -148,7 +182,7 @@ class Process {
       // todo - I do think we need to trace all request / release / ack calls by the original timestamp maybe?
       const everyOtherProcessAcked = Process.processes.every((p) => {
         if (p.#processId === this.#processId) return true;
-        return this.#messageQueue.find((message) => {
+        return this.#messageQueue.queue.find((message) => {
           return message.type === "ack" && message.processId === p.#processId;
         });
       });
@@ -160,12 +194,17 @@ class Process {
   }
 }
 
+const processZero = new Process();
 const processOne = new Process();
 const processTwo = new Process();
-const processThree = new Process();
 
-processOne.attemptToAccessResource();
+verboseLogging = true;
+processZero.attemptToAccessResource(); //should fail
+processZero.requestResource();
+processZero.attemptToAccessResource(); //should succeed
 processOne.requestResource();
-processOne.attemptToAccessResource();
+processOne.attemptToAccessResource(); //should fail
+processZero.releaseResource();
+processOne.attemptToAccessResource(); // should succeed
 
-//note: to make an array act like a queue, unshift IN and pop/length access OUT
+// I think when processX succesfully accesses resource, all the other processes need to clear the request resource from their queue
