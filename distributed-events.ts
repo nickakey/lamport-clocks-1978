@@ -158,7 +158,6 @@ class Process {
     this.#messageQueue.enqueue(request);
     this.sendMessageToAllProcesses(request);
 
-    // I'm not actually sure when we are suppposed to increment this timestamp, I am just guessing its here?
     this.#timestamp += 1;
   }
 
@@ -194,17 +193,68 @@ class Process {
   }
 }
 
-const processZero = new Process();
-const processOne = new Process();
-const processTwo = new Process();
+// // Reset state for fresh tests
+// Process.processCount = 0;
+// Process.processes = [];
+// verboseLogging = false;
+// const processZero = new Process();
+// const processOne = new Process();
+// const processTwo = new Process();
 
-verboseLogging = true;
-processZero.attemptToAccessResource(); //should fail
-processZero.requestResource();
-processZero.attemptToAccessResource(); //should succeed
-processOne.requestResource();
-processOne.attemptToAccessResource(); //should fail
-processZero.releaseResource();
-processOne.attemptToAccessResource(); // should succeed
+// verboseLogging = true;
+// processZero.attemptToAccessResource(); //should fail
+// processZero.requestResource();
+// processZero.attemptToAccessResource(); //should succeed
+// processOne.requestResource();
+// processOne.attemptToAccessResource(); //should fail
+// processZero.releaseResource();
+// processOne.attemptToAccessResource(); // should succeed
 
 // I think when processX succesfully accesses resource, all the other processes need to clear the request resource from their queue
+
+// ---- additional test cases ----
+
+// Reset state for fresh tests
+Process.processCount = 0;
+Process.processes = [];
+verboseLogging = true;
+
+const pA = new Process();
+const pB = new Process();
+const pC = new Process();
+
+// NICK NOTE: THESE TESTS BELOW WRITTEN BY AI
+
+// Test: ack arriving before request should not allow access
+// pA should NOT get access just from acks alone, without ever requesting
+pA.attemptToAccessResource(); // should fail
+
+// Test: two simultaneous requests — lower processId should win
+// pA and pB both request at the "same" time
+// pA has lower id so should be granted first, pB should be denied
+pA.requestResource();
+pB.requestResource();
+pB.attemptToAccessResource(); // should fail (pA has priority)
+pA.attemptToAccessResource(); // should succeed
+
+// Test: after pA releases, pB should now be grantable
+pA.releaseResource();
+pB.attemptToAccessResource(); // should succeed
+
+// Test: three-way contention — only the earliest/lowest-id wins
+Process.processCount = 0;
+Process.processes = [];
+const p0 = new Process();
+const p1 = new Process();
+const p2 = new Process();
+
+p0.requestResource();
+p1.requestResource();
+p2.requestResource();
+p1.attemptToAccessResource(); // should fail
+p2.attemptToAccessResource(); // should fail
+p0.attemptToAccessResource(); // should succeed
+p0.releaseResource();
+p1.attemptToAccessResource(); // should succeed
+p1.releaseResource();
+p2.attemptToAccessResource(); // should succeed
