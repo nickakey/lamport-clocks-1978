@@ -17,17 +17,21 @@ const processZero = new Process();
 const processOne = new Process();
 const processTwo = new Process();
 
-const requestTimestamp = processZero.requestResource();
 expect(
-  processZero.attemptToAccessResource(requestTimestamp),
+  processZero.attemptToAccessResource(),
+  true,
+  "P0 should fail without requesting access",
+);
+expect(
+  processZero.attemptToAccessResource(),
   true,
   "P0 should succeed after requesting access",
 );
-// expect(
-//   processOne.attemptToAccessResource(),
-//   false,
-//   "P1 should fail without requesting access",
-// );
+expect(
+  processOne.attemptToAccessResource(),
+  false,
+  "P1 should fail without requesting access",
+);
 // processOne.requestResource();
 // processOne.attemptToAccessResource(); //should fail
 // processZero.releaseResource();

@@ -49,6 +49,9 @@ class MessageStorage {
 }
 
 export class Process {
+  //when we request access, we save the timestamp of our request for use in future access attempts etc
+  #currentRequestTimestamp: null | number = null;
+
   #processId = 0;
 
   //queue used for handling ordering of requests
@@ -178,6 +181,7 @@ export class Process {
       message: "request resource",
       type: "request",
     };
+    this.#currentRequestTimestamp = request.timestamp;
     this.#requestQueue.enqueue(request);
     this.sendMessageToAllProcesses(request);
 
@@ -185,12 +189,13 @@ export class Process {
     return request.timestamp;
   }
 
-  attemptToAccessResource(requestTimestamp: number) {
-    if (requestTimestamp === undefined) {
+  attemptToAccessResource(): boolean {
+    const timestamp = this.#currentRequestTimestamp;
+    if (timestamp === null) {
       log("missing request timestamp");
-      return;
+      return false;
     } else {
-      log(`accessing in relation to request ${requestTimestamp}`);
+      log(`accessing in relation to request ${timestamp}`);
     }
     log(`--------P${this.#processId} attempting to access resource---- ----`);
     // Process P/is granted the resource when the following two conditions are satisfied:
@@ -207,7 +212,7 @@ export class Process {
       // (ii) P~has received a message from every other process time- stamped later than Tin.~ (nick: I assume this is an ack request??)
       const everyOtherProcessAcked = Process.processes.every((p) => {
         if (p.#processId === this.#processId) return true;
-        return this.#messageStore.get(p.#processId, requestTimestamp);
+        return this.#messageStore.get(p.#processId, timestamp);
       });
       if (everyOtherProcessAcked) {
         log(`Access granted for process ${this.#processId}!!`);
