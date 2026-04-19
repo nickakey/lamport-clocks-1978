@@ -11,6 +11,7 @@ class MessageQueue {
     return this.queue.shift();
   }
   peekFrontOfQueue() {
+    log("this queue ", this.queue);
     return this.queue[0];
   }
   length() {

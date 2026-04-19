@@ -17,11 +17,13 @@ const processZero = new Process();
 const processOne = new Process();
 const processTwo = new Process();
 
+
 expect(
   processZero.attemptToAccessResource(),
-  true,
+  false,
   "P0 should fail without requesting access",
 );
+processZero.requestResource();
 expect(
   processZero.attemptToAccessResource(),
   true,
@@ -32,7 +34,9 @@ expect(
   false,
   "P1 should fail without requesting access",
 );
-// processOne.requestResource();
-// processOne.attemptToAccessResource(); //should fail
-// processZero.releaseResource();
-// processOne.attemptToAccessResource(); // should succeed
+processOne.requestResource();
+expect(
+  processOne.attemptToAccessResource(),
+  false,
+  "P1 should still fail since zero hasn't released",
+);
