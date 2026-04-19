@@ -19,7 +19,7 @@ class MessageQueue {
   }
 }
 
-export let verboseLogging = true;
+export let verboseLogging = false;
 
 const oldConsoleLog = console.log;
 const log = (...args) => {
@@ -42,7 +42,7 @@ class MessageStorage {
     ] = message;
   }
   get(processId: number, timestamp: number) {
-    console.log(this.#storage);
+    log(this.#storage);
     return this.#storage[
       `ProcessId:${processId}:OriginalRequestTimestamp:${timestamp}`
     ];

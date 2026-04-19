@@ -17,7 +17,6 @@ const processZero = new Process();
 const processOne = new Process();
 const processTwo = new Process();
 
-
 expect(
   processZero.attemptToAccessResource(),
   false,
@@ -39,4 +38,10 @@ expect(
   processOne.attemptToAccessResource(),
   false,
   "P1 should still fail since zero hasn't released",
+);
+processZero.releaseResource();
+expect(
+  processOne.attemptToAccessResource(),
+  true,
+  "P1 should now succeed since zero released",
 );
